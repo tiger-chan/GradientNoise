@@ -30,7 +30,8 @@ public class GradientNoise : ModuleRules
 			{
 				"Core",
 				"GradientNoiseLibrary",
-				"Projects"
+				"Projects",
+				"Json"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
