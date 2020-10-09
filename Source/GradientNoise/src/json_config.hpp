@@ -1,5 +1,5 @@
-#ifndef GRADIENT_NOISE_SRC_JSON_CONFIG
-#define GRADIENT_NOISE_SRC_JSON_CONFIG
+#ifndef GRADIENT_NOISE_SRC_JSON_CONFIG_HPP
+#define GRADIENT_NOISE_SRC_JSON_CONFIG_HPP
 
 #include "CoreMinimal.h"
 #include "Json.h"
@@ -29,6 +29,32 @@ template <> struct config_callback<FJsonValue> {
 	}
 
 	std::unordered_map<std::string, scope_ptr<base_task>> *tasks{ nullptr };
+};
+
+template <> struct config<FJsonObject, config_details> {
+	template <typename Callback>
+	void operator()(config_details &task, const FJsonObject &obj, Callback &callback) const
+	{
+		static const FString name_key{ TEXT("name") };
+		static const FString type_key{ TEXT("type") };
+		static const FString rendered_key{ TEXT("rendered") };
+
+		auto ue_to_std = [](const FString& str) {
+			return std::string{ TCHAR_TO_UTF8(*str) };
+		};
+
+		if (obj.HasField(name_key)) {
+			task.name =  ue_to_std(obj.GetStringField(name_key));
+		}
+
+		if (obj.HasField(type_key)) {
+			task.type = ue_to_std(obj.GetStringField(type_key));
+		}
+
+		if (obj.HasField(rendered_key)) {
+			task.rendered = obj.GetBoolField(rendered_key);
+		}
+	}
 };
 
 template <> struct config<FJsonObject, noise_config> {
@@ -88,12 +114,11 @@ template <typename Type> struct config<FJsonObject, accumulator<Type>> {
 	{
 		static const FString source_key{ TEXT("source_") };
 
-		auto end = std::end(obj);
 		for (size_t i = 0; i < task.size(); ++i) {
 			FString key = source_key + FString::FromInt(i);
 
 			if (obj.HasField(key)) {
-				auto src = callback(*obj.GetField(key));
+				auto src = callback(*obj.Values[key]);
 				task.set_source(i, src);
 			}
 		}
@@ -108,12 +133,12 @@ template <> struct config<FJsonObject, bias_task> {
 		static const FString bias_key{ TEXT("bias") };
 
 		if (obj.HasField(source_key)) {
-			auto src = callback(*obj.GetField(source_key));
+			auto src = callback(*obj.Values[source_key]);
 			task.source(src);
 		}
 
 		if (obj.HasField(bias_key)) {
-			auto src = callback(*obj.GetField(bias_key));
+			auto src = callback(*obj.Values[bias_key]);
 			task.bias(src);
 		}
 	}
@@ -130,9 +155,9 @@ template <typename Noise> struct config<FJsonObject, billowing<Noise>> {
 			task.set_seed(seed);
 		}
 
-		auto config = task.config();
-		config<FJsonObject, noise_config>{}(config, obj, callback);
-		task.set_config(config);
+		auto c = task.config();
+		config<FJsonObject, noise_config>{}(c, obj, callback);
+		task.set_config(c);
 	}
 };
 
@@ -143,8 +168,21 @@ template <> struct config<FJsonObject, cache> {
 		static const FString source_key{ TEXT("source") };
 
 		if (obj.HasField(source_key)) {
-			auto src = callback(*obj.GetField(source_key));
+			auto src = callback(*obj.Values[source_key]);
 			task.set_source(src);
+		}
+	}
+};
+
+template <> struct config<FJsonObject, constant> {
+	template <typename Callback>
+	void operator()(constant &task, const FJsonObject &obj, Callback &callback) const
+	{
+		static const FString value_key{ TEXT("value") };
+
+		if (obj.HasField(value_key)) {
+			auto src = obj.GetNumberField(value_key);
+			task.set_value(src);
 		}
 	}
 };
@@ -158,7 +196,6 @@ template <> struct config<FJsonObject, gradient> {
 		l.fill(0.0);
 		r.fill(0.0);
 
-		auto end = std::end(obj);
 		for (auto i = 0; i < defaults::gradient_max_dimensions; ++i) {
 			FString var{ UTF8_TO_TCHAR(math::to_c_str(static_cast<math::variable>(i))) };
 			auto var1 = var + "1";
@@ -190,7 +227,7 @@ template <> struct config<FJsonObject, map_range> {
 		static const FString high_key{ TEXT("high") };
 
 		if (obj.HasField(source_key)) {
-			auto src = callback(*obj.GetField(source_key));
+			auto src = callback(*obj.Values[source_key]);
 			task.set_source(src);
 		}
 
@@ -216,6 +253,14 @@ template <> struct config<FJsonObject, map_range> {
 	}
 };
 
+template <> struct config<FJsonObject, additive> {
+	template <typename Callback>
+	void operator()(additive &task, const FJsonObject &obj, Callback &callback) const
+	{
+		config<FJsonObject, accumulator<additive>>{}(task, obj, callback);
+	}
+};
+
 template <> struct config<FJsonObject, multiply> {
 	template <typename Callback>
 	void operator()(multiply &task, const FJsonObject &obj, Callback &callback) const
@@ -235,9 +280,9 @@ template <typename Noise> struct config<FJsonObject, perlin<Noise>> {
 			task.set_seed(seed);
 		}
 
-		auto config = task.config();
-		config<FJsonObject, noise_config>{}(config, obj, callback);
-		task.set_config(config);
+		auto c = task.config();
+		config<FJsonObject, noise_config>{}(c, obj, callback);
+		task.set_config(c);
 	}
 };
 
@@ -253,9 +298,9 @@ template <typename Noise> struct config<FJsonObject, ridged_multifractal<Noise>>
 			task.set_seed(seed);
 		}
 
-		auto config = task.config();
-		config<FJsonObject, ridged_multi_config>{}(config, obj, callback);
-		task.set_config(config);
+		auto c = task.config();
+		config<FJsonObject, ridged_multi_config>{}(c, obj, callback);
+		task.set_config(c);
 	}
 };
 
@@ -268,17 +313,17 @@ template <> struct config<FJsonObject, scale_bias> {
 		static const FString bias_key{ TEXT("bias") };
 
 		if (obj.HasField(source_key)) {
-			auto src = callback(*obj.GetField(source_key));
+			auto src = callback(*obj.Values[source_key]);
 			task.set_source(src);
 		}
 
 		if (obj.HasField(scale_key)) {
-			auto src = callback(*obj.GetField(scale_key));
+			auto src = callback(*obj.Values[scale_key]);
 			task.set_scale(src);
 		}
 
 		if (obj.HasField(bias_key)) {
-			auto src = callback(*obj.GetField(bias_key));
+			auto src = callback(*obj.Values[bias_key]);
 			task.set_bias(src);
 		}
 	}
@@ -293,7 +338,7 @@ template <> struct config<FJsonObject, scale_domain> {
 		static const FString bias_key{ TEXT("bias") };
 
 		if (obj.HasField(source_key)) {
-			auto src = callback(*obj.GetField(source_key));
+			auto src = callback(*obj.Values[source_key]);
 			task.set_source(src);
 		}
 
@@ -302,7 +347,7 @@ template <> struct config<FJsonObject, scale_domain> {
 			auto var = FString{UTF8_TO_TCHAR(math::to_c_str(v))};
 
 			if (obj.HasField(var)) {
-				auto src = callback(*obj.GetField(var));
+				auto src = callback(*obj.Values[var]);
 				task.set_scale(v, src);
 			}
 		}
@@ -320,27 +365,27 @@ template <typename Blender> struct config<FJsonObject, selector<Blender>> {
 		static const FString falloff_key{ TEXT("falloff") };
 
 		if (obj.HasField(switch_key)) {
-			auto src = callback(*obj.GetField(switch_key));
+			auto src = callback(*obj.Values[switch_key]);
 			task.set_switch(src);
 		}
 
 		if (obj.HasField(low_key)) {
-			auto src = callback(*obj.GetField(low_key));
+			auto src = callback(*obj.Values[low_key]);
 			task.set_low(src);
 		}
 
 		if (obj.HasField(high_key)) {
-			auto src = callback(*obj.GetField(high_key));
+			auto src = callback(*obj.Values[high_key]);
 			task.set_high(src);
 		}
 
 		if (obj.HasField(threshold_key)) {
-			auto src = callback(*obj.GetField(threshold_key));
+			auto src = callback(*obj.Values[threshold_key]);
 			task.set_threshold(src);
 		}
 
 		if (obj.HasField(falloff_key)) {
-			auto src = callback(*obj.GetField(falloff_key));
+			auto src = callback(*obj.Values[falloff_key]);
 			task.set_falloff(src);
 		}
 	}
@@ -353,7 +398,7 @@ template <> struct config<FJsonObject, translate_domain> {
 		static const FString source_key{ TEXT("source") };
 
 		if (obj.HasField(source_key)) {
-			auto src = callback(*obj.GetField(source_key));
+			auto src = callback(*obj.Values[source_key]);
 			task.set_source(src);
 		}
 
@@ -362,7 +407,7 @@ template <> struct config<FJsonObject, translate_domain> {
 			auto var = FString{ UTF8_TO_TCHAR(math::to_c_str(v)) };
 
 			if (obj.HasField(var)) {
-				auto src = callback(*obj.GetField(var));
+				auto src = callback(*obj.Values[var]);
 				task.set_translation(v, src);
 			}
 		}
@@ -378,12 +423,12 @@ template <> struct config<FJsonObject, turbulence> {
 
 
 		if (obj.HasField(source_key)) {
-			auto src = callback(*obj.GetField(source_key));
+			auto src = callback(*obj.Values[source_key]);
 			task.set_source(src);
 		}
 
 		if (obj.HasField(multiplier_key)) {
-			auto src = callback.eval(*obj.GetField(multiplier_key));
+			auto src = callback.eval(*obj.GetField<EJson::Object>(multiplier_key));
 			task.set_multiplier(src);
 		}
 
@@ -392,7 +437,7 @@ template <> struct config<FJsonObject, turbulence> {
 			auto var = FString{ UTF8_TO_TCHAR(math::to_c_str(v)) };
 
 			if (obj.HasField(var)) {
-				auto src = callback(*obj.GetField(var));
+				auto src = callback(*obj.Values[var]);
 				task.set_translation(v, src);
 			}
 		}
@@ -402,4 +447,4 @@ template <> struct config<FJsonObject, turbulence> {
 } // namespace task
 } // namespace tc
 
-#endif // GRADIENT_NOISE_SRC_JSON_CONFIG
+#endif // GRADIENT_NOISE_SRC_JSON_CONFIG_HPP
