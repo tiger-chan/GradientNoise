@@ -4,14 +4,14 @@
 #include "CoreMinimal.h"
 #include "Json.h"
 #include "uproar/tasks.hpp"
-#include "uproar/tasks/config.hpp"
+#include "uproar/tasks/parse.hpp"
 #include <string>
 
 namespace tc
 {
 namespace task
 {
-template <> struct config_callback<FJsonValue> {
+template <> struct parse_callback<FJsonValue> {
 	task_source operator()(const FJsonValue &val) const
 	{
 		if (val.Type == EJson::Number) {
@@ -31,9 +31,8 @@ template <> struct config_callback<FJsonValue> {
 	std::unordered_map<std::string, scope_ptr<base_task>> *tasks{ nullptr };
 };
 
-template <> struct config<FJsonObject, config_details> {
-	template <typename Callback>
-	void operator()(config_details &task, const FJsonObject &obj, Callback &callback) const
+template <> struct parse<FJsonObject, task_details> {
+	void operator()(task_details &task, const FJsonObject &obj) const
 	{
 		static const FString name_key{ TEXT("name") };
 		static const FString type_key{ TEXT("type") };
@@ -57,7 +56,7 @@ template <> struct config<FJsonObject, config_details> {
 	}
 };
 
-template <> struct config<FJsonObject, noise_config> {
+template <> struct parse<FJsonObject, noise_config> {
 	template <typename Callback>
 	void operator()(noise_config &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -89,7 +88,7 @@ template <> struct config<FJsonObject, noise_config> {
 	}
 };
 
-template <> struct config<FJsonObject, ridged_multi_config> {
+template <> struct parse<FJsonObject, ridged_multi_config> {
 	template <typename Callback>
 	void operator()(ridged_multi_config &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -104,11 +103,11 @@ template <> struct config<FJsonObject, ridged_multi_config> {
 			task.offset = obj.GetNumberField(offset_key);
 		}
 
-		config<FJsonObject, noise_config>{}(task, obj, callback);
+		parse<FJsonObject, noise_config>{}(task, obj, callback);
 	}
 };
 
-template <typename Type> struct config<FJsonObject, accumulator<Type>> {
+template <typename Type> struct parse<FJsonObject, accumulator<Type>> {
 	template <typename Callback>
 	void operator()(accumulator<Type> &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -125,7 +124,7 @@ template <typename Type> struct config<FJsonObject, accumulator<Type>> {
 	}
 };
 
-template <> struct config<FJsonObject, bias_task> {
+template <> struct parse<FJsonObject, bias_task> {
 	template <typename Callback>
 	void operator()(bias_task &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -144,7 +143,7 @@ template <> struct config<FJsonObject, bias_task> {
 	}
 };
 
-template <typename Noise> struct config<FJsonObject, billowing<Noise>> {
+template <typename Noise> struct parse<FJsonObject, billowing<Noise>> {
 	template <typename Callback>
 	void operator()(billowing<Noise> &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -156,12 +155,12 @@ template <typename Noise> struct config<FJsonObject, billowing<Noise>> {
 		}
 
 		auto c = task.config();
-		config<FJsonObject, noise_config>{}(c, obj, callback);
+		parse<FJsonObject, noise_config>{}(c, obj, callback);
 		task.set_config(c);
 	}
 };
 
-template <> struct config<FJsonObject, cache> {
+template <> struct parse<FJsonObject, cache> {
 	template <typename Callback>
 	void operator()(cache &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -174,7 +173,7 @@ template <> struct config<FJsonObject, cache> {
 	}
 };
 
-template <> struct config<FJsonObject, constant> {
+template <> struct parse<FJsonObject, constant> {
 	template <typename Callback>
 	void operator()(constant &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -187,7 +186,7 @@ template <> struct config<FJsonObject, constant> {
 	}
 };
 
-template <> struct config<FJsonObject, gradient> {
+template <> struct parse<FJsonObject, gradient> {
 	template <typename Callback>
 	void operator()(gradient &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -216,7 +215,7 @@ template <> struct config<FJsonObject, gradient> {
 	}
 };
 
-template <> struct config<FJsonObject, map_range> {
+template <> struct parse<FJsonObject, map_range> {
 	template <typename Callback>
 	void operator()(map_range &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -253,23 +252,23 @@ template <> struct config<FJsonObject, map_range> {
 	}
 };
 
-template <> struct config<FJsonObject, additive> {
+template <> struct parse<FJsonObject, additive> {
 	template <typename Callback>
 	void operator()(additive &task, const FJsonObject &obj, Callback &callback) const
 	{
-		config<FJsonObject, accumulator<additive>>{}(task, obj, callback);
+		parse<FJsonObject, accumulator<additive>>{}(task, obj, callback);
 	}
 };
 
-template <> struct config<FJsonObject, multiply> {
+template <> struct parse<FJsonObject, multiply> {
 	template <typename Callback>
 	void operator()(multiply &task, const FJsonObject &obj, Callback &callback) const
 	{
-		config<FJsonObject, accumulator<multiply>>{}(task, obj, callback);
+		parse<FJsonObject, accumulator<multiply>>{}(task, obj, callback);
 	}
 };
 
-template <typename Noise> struct config<FJsonObject, perlin<Noise>> {
+template <typename Noise> struct parse<FJsonObject, perlin<Noise>> {
 	template <typename Callback>
 	void operator()(perlin<Noise> &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -281,12 +280,12 @@ template <typename Noise> struct config<FJsonObject, perlin<Noise>> {
 		}
 
 		auto c = task.config();
-		config<FJsonObject, noise_config>{}(c, obj, callback);
+		parse<FJsonObject, noise_config>{}(c, obj, callback);
 		task.set_config(c);
 	}
 };
 
-template <typename Noise> struct config<FJsonObject, ridged_multifractal<Noise>> {
+template <typename Noise> struct parse<FJsonObject, ridged_multifractal<Noise>> {
 	template <typename Callback>
 	void operator()(ridged_multifractal<Noise> &task, const FJsonObject &obj,
 			Callback &callback) const
@@ -299,12 +298,12 @@ template <typename Noise> struct config<FJsonObject, ridged_multifractal<Noise>>
 		}
 
 		auto c = task.config();
-		config<FJsonObject, ridged_multi_config>{}(c, obj, callback);
+		parse<FJsonObject, ridged_multi_config>{}(c, obj, callback);
 		task.set_config(c);
 	}
 };
 
-template <> struct config<FJsonObject, scale_bias> {
+template <> struct parse<FJsonObject, scale_bias> {
 	template <typename Callback>
 	void operator()(scale_bias &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -329,7 +328,7 @@ template <> struct config<FJsonObject, scale_bias> {
 	}
 };
 
-template <> struct config<FJsonObject, scale_domain> {
+template <> struct parse<FJsonObject, scale_domain> {
 	template <typename Callback>
 	void operator()(scale_domain &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -354,7 +353,7 @@ template <> struct config<FJsonObject, scale_domain> {
 	}
 };
 
-template <typename Blender> struct config<FJsonObject, selector<Blender>> {
+template <typename Blender> struct parse<FJsonObject, selector<Blender>> {
 	template <typename Callback>
 	void operator()(selector<Blender> &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -391,7 +390,7 @@ template <typename Blender> struct config<FJsonObject, selector<Blender>> {
 	}
 };
 
-template <> struct config<FJsonObject, translate_domain> {
+template <> struct parse<FJsonObject, translate_domain> {
 	template <typename Callback>
 	void operator()(translate_domain &task, const FJsonObject &obj, Callback &callback) const
 	{
@@ -414,7 +413,7 @@ template <> struct config<FJsonObject, translate_domain> {
 	}
 };
 
-template <> struct config<FJsonObject, turbulence> {
+template <> struct parse<FJsonObject, turbulence> {
 	template <typename Callback>
 	void operator()(turbulence &task, const FJsonObject &obj, Callback &callback) const
 	{
